@@ -4545,6 +4545,16 @@ DEFINE_BUILTIN_OP_IMPORTER(Slice)
         ends = interlace(ctx, dims, ends, subscripts);
         steps = interlace(ctx, similar(ctx, dims, 1), steps, subscripts);
     }
+	
+    if (starts.rankKnown() && starts.rank() == 0) {
+        starts = ShapeTensor(convertScalarToRank1Vector(ctx, starts));
+    }
+    if (ends.rankKnown() && ends.rank() == 0) {
+        ends = ShapeTensor(convertScalarToRank1Vector(ctx, ends));
+    }
+    if (steps.rankKnown() && steps.rank() == 0) {
+        steps = ShapeTensor(convertScalarToRank1Vector(ctx, steps));
+    }
 
     // ONNX has a bunch of rules for converting out of bounds starts/ends
     // indices into the actual indices to use.

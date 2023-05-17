@@ -210,6 +210,10 @@ ShapeTensor similar(IImporterContext* ctx, const ShapeTensor& exemplar, int64_t 
 
 ShapeTensor fillShapeVector(IImporterContext* ctx, int64_t value, const ShapeTensor& count)
 {
+    if (count.rank() == 0) {
+	return ShapeTensor(0, std::vector<int64_t>(1, value));
+    }
+
     assert(count.rank() == 1 && "implementation assumes 1D size");
     assert(count.size() == 1 && "implementation assumes 1D size of known size");
     if (count.allValuesKnown())
@@ -327,8 +331,6 @@ ShapeTensor product(IImporterContext* ctx, const ShapeTensor& x, int first, int 
 
 ShapeTensor concat(IImporterContext* ctx, const ShapeTensor& x, const ShapeTensor& y)
 {
-    assert(!x.rankKnown() || x.rank() == 1);
-    assert(!y.rankKnown() || y.rank() == 1);
     if (x.sizeKnown() && x.size() == 0)
     {
         return y;
@@ -345,14 +347,16 @@ ShapeTensor concat(IImporterContext* ctx, const ShapeTensor& x, const ShapeTenso
         return ShapeTensor(1, std::move(values));
     }
 
-    nvinfer1::ITensor* const args[2] = {&x.tensor(ctx), &y.tensor(ctx)};
-    return ShapeTensor(*ctx->network()->addConcatenation(args, 2)->getOutput(0));
+    std::vector<nvinfer1::ITensor*> args;
+    args.push_back(x.rank() == 0 ? &convertScalarToRank1Vector(ctx, x) : &x.tensor(ctx));
+    args.push_back(y.rank() == 0 ? &convertScalarToRank1Vector(ctx, y) : &y.tensor(ctx));
+    return ShapeTensor(*ctx->network()->addConcatenation(args.data(), 2)->getOutput(0));
 }
 
 ShapeTensor gather(IImporterContext* ctx, const ShapeTensor& data, const ShapeTensor& indices)
 {
-    assert(data.rank() == 1);
-    if (indices.allValuesKnown()
+    if (indices.allValuesKnown() 
+        && data.rankKnown() 
         && std::all_of(indices.begin(), indices.end(), [&data](int i) { return data.valueKnown(i); }))
     {
         std::vector<int64_t> z(indices.size());
@@ -364,6 +368,18 @@ ShapeTensor gather(IImporterContext* ctx, const ShapeTensor& data, const ShapeTe
         return ShapeTensor(indices.rank(), std::move(z));
     }
     return ShapeTensor(*ctx->network()->addGather(data.tensor(ctx), indices.tensor(ctx), 0)->getOutput(0));
+}
+
+nvinfer1::ITensor& convertScalarToRank1Vector(IImporterContext* ctx, ShapeTensor const& x)
+{
+    if (x.allValuesKnown()) 
+    {
+        return ShapeTensor(1, std::vector<int64_t>{x[0]}).tensor(ctx);
+    }
+    else 
+    {
+        return reshape(ctx, x.tensor(ctx), ShapeTensor(1, std::vector<int64_t>{1}));
+    }
 }
 
 ShapeTensor castToInt32(IImporterContext* ctx, ShapeTensor const& x)
@@ -392,16 +408,17 @@ ShapeTensor shapeOf(TensorOrWeights& t)
 ShapeTensor shapeOf(const ShapeTensor& t)
 {
     assert(t.mDepth >= 0);
-    if (t.mTensor)
+    if (t.rankKnown() && t.sizeKnown()) 
+    {
+        // ShapeTensor is either a scalar or vector.
+        // shape of a scalar is an empty tensor.
+        // shape of a vector is a one-element tensor containing the length of the vector.
+        return ShapeTensor(t.rank(),  std::vector<int64_t>{t.size()});
+    }
+    else
     {
         return ShapeTensor(*t.mTensor, t.mDepth + 1);
     }
-    assert(t.rankKnown());
-    assert(t.sizeKnown());
-    // ShapeTensor is either a scalar or vector.
-    // shape of a scalar is an empty tensor.
-    // shape of a vector is a one-element tensor containing the length of the vector.
-    return t.rank() == 0 ? ShapeTensor(0, std::vector<int64_t>{}) : ShapeTensor(1, std::vector<int64_t>{t.size()});
 }
 
 ShapeTensor convertTo1D(IImporterContext* ctx, const ShapeTensor& tensor)

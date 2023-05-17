@@ -207,8 +207,11 @@ ShapeTensor product(IImporterContext* ctx, const ShapeTensor& x, int first, int 
 //! Gather where data is 1D tensor and indices can be 0D or 1D
 ShapeTensor gather(IImporterContext* ctx, const ShapeTensor& data, const ShapeTensor& indices);
 
-//! Concatenation of two 1D tensors
+//! Concatenation of two tensors
 ShapeTensor concat(IImporterContext* ctx, const ShapeTensor& x, const ShapeTensor& y);
+
+//! Convert a scalar to a tensor of rank 1
+nvinfer1::ITensor& convertScalarToRank1Vector(IImporterContext* ctx, ShapeTensor const& x);
 
 //! Cast to int32_t shape tensor.
 ShapeTensor castToInt32(IImporterContext* ctx, ShapeTensor const& x);
@@ -217,6 +220,19 @@ ShapeTensor castToInt32(IImporterContext* ctx, ShapeTensor const& x);
 inline ShapeTensor interlace(
     IImporterContext* ctx, const ShapeTensor& x, const ShapeTensor& y, const ShapeTensor& subscripts)
 {
+    /*
+    assert((x.rank() <= 1 && y.rank() <= 1) && "x and y must have rank 0 or 1");
+    const ShapeTensor& x_concat_y = concat(ctx, x, y);
+    
+    ShapeTensor x_concat_y_rank_1;
+    if (!x_concat_y.rankKnown() || !x_concat_y.sizeKnown()) {
+        x_concat_y_rank_1 = ShapeTensor(x_concat_y.tensor(ctx), 1);
+    }
+    else {
+	x_concat_y_rank_1 = x_concat_y;
+    }
+    */
+
     return gather(ctx, concat(ctx, x, y), subscripts);
 }
 
