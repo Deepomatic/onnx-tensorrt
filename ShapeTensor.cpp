@@ -357,7 +357,8 @@ ShapeTensor gather(IImporterContext* ctx, const ShapeTensor& data, const ShapeTe
 {
     if (indices.allValuesKnown() 
         && data.rankKnown() 
-        && std::all_of(indices.begin(), indices.end(), [&data](int i) { return data.valueKnown(i); }))
+        && data.sizeKnown()
+	&& std::all_of(indices.begin(), indices.end(), [&data](int i) { return data.valueKnown(i); }))
     {
         std::vector<int64_t> z(indices.size());
         std::transform(indices.begin(), indices.end(), z.begin(), [&data](int64_t i) {

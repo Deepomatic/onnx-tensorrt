@@ -4491,8 +4491,8 @@ DEFINE_BUILTIN_OP_IMPORTER(Slice)
         axes = nbInputs > 3 ? ShapeTensor(ctx, inputs.at(3)) : iotaShapeVector(dims.size());
         // Doesn't support dynamic axes currently.
         ASSERT( (axes.allValuesKnown()) && "This version of TensorRT does not support dynamic axes.", ErrorCode::kUNSUPPORTED_NODE);
-        ASSERT( (starts.size() == axes.size()) && "The shape of input starts misaligns with the shape of input axes.", ErrorCode::kUNSUPPORTED_NODE);
-        ASSERT(ends.size() == axes.size() && "The shape of input ends misaligns with the shape of input axes.", ErrorCode::kUNSUPPORTED_NODE);
+        ASSERT( (!starts.sizeKnown() || starts.size() == axes.size()) && "The shape of input starts misaligns with the shape of input axes.", ErrorCode::kUNSUPPORTED_NODE);
+        ASSERT( (!ends.sizeKnown() || ends.size() == axes.size()) && "The shape of input ends misaligns with the shape of input axes.", ErrorCode::kUNSUPPORTED_NODE);
         // "If steps are omitted, they are set to [1, ..., 1] of length len(starts)."
         steps = inputs.size() > 4 ? ShapeTensor(ctx, inputs.at(4)) : similar(ctx, starts, 1);
     }
